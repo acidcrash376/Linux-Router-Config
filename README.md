@@ -13,3 +13,8 @@ Script currently assumes you are running on a single WAN and single LAN instance
 # To do:
 * Hostapd - wireless access point for LAN interface
 * Generalisation - Make the script a little more generic and require less back end tweaking, specifically interface names
+
+# Tested On:
+* x86-64 Processor
+* ESXi/Workstation vEth adaptor
+* Ubuntu 20.04 LTS
