@@ -6,8 +6,9 @@
 #		packages are installed, checks localisation, IP configuration
 #		and DHCP server instance are configured.
 #		Still to do: hostapd install
-# [Last Update] 06/05/2020
-# [Version    ] v0.5
+# [Created    ] 06/05/2020
+# [Last Update] 07/05/2020
+# [Version    ] v0.6
 # [URL        ] https://github.com/acidcrash376/Linux-Router-Config
 # ------------------------------------------------------------------
 #
@@ -59,15 +60,27 @@ tool="net-tools"
 getreq
 tool="isc-dhcp-server"
 getreq
+tool="openssh-server"
+getreq
 
-# --- --- Set locale and keyboard --- ---
+######################################################
+# --- --- Set locale and keyboard -------------------#
+######################################################
 echo -e "\e[36m\e[1m\e[4m> Setting Locale and Keyboard Layout\e[39m\e[0m]"
 echo ""
 localectl set-locale LANG=en_GB.UTF-8
 setxkbmap gb
 echo -e "\e[32mLocale & Keyboard configured successfully\e[39m"
+echo ""
+echo -e "\e[33mlocaltime backed up to \e[93m/etc/localtime.bak\e[39m"
+echo " "
+rm -f /etc/localtime
+ln -s /usr/share/zoneinfo/Europe/London /etc/localtime
+echo -e '\e[32mTimezone changed to GMT\e[39m'
 
-# --- --- Set IP --- ---
+######################################################
+# --- --- Set IP ------------------------------------#
+######################################################
 echo "network:
   version: 2
   renderer: networkd
@@ -86,7 +99,6 @@ echo "network:
           search: []
           addresses: [1.1.1.1]
 " > /etc/netplan/11-network-manager-eth.yaml
-#cat /etc/netplan/11-network-manager-eth.yaml
 echo " "
 echo -e "\e[36m\e[1m\e[4m> Configuring Network Interfaces\e[39m\e[0m"
 echo " "
@@ -105,8 +117,9 @@ if [ $? -eq 0 ]
 		exit
 	fi
 
-
-# --- --- Enable IPv4 Forwarding --- ---
+#######################################################
+# --- --- Enable IPv4 Forwarding ---------------------#
+#######################################################
 echo -e "\e[36m\e[1m\e[4m> Configure IP Forwarding\e[39m\e[0m"
 echo " "
 cp /etc/sysctl.conf /etc/sysctl.conf.bak
@@ -116,7 +129,9 @@ sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/g' /etc/sysctl.conf
 echo -e "\e[32mIP Forwarding configured successfully\e[39m"
 echo " "
 
-# --- --- DHCP Server --- ---
+#######################################################
+# --- --- DHCP Server --------------------------------#
+#######################################################
 echo -e "\e[36m\e[1m\e[4m> Configure IP Forwarding\e[39m\e[0m"
 echo " "
 cp /etc/default/isc-dhcp-server /etc/default/isc-dhcp-server.bak
@@ -161,7 +176,47 @@ if [ $? -eq 0 ]
 		exit
 fi
 
-# --- --- iptables, NAT --- ---
+##################################################
+# --- --- SSH Server ----------------------------#
+##################################################
+echo -e "\e[36m\e[1m\e[4m> Configuring SSH Server\e[39m\e[0m"
+echo " "
+cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak
+echo -e "\e[33msshd_config backed up to \e[93m/etc/ssh/sshd_config.bak\e[39m"
+echo " "
+sed -i 's/#Port 22/Port 2222/g' /etc/ssh/sshd_config
+sed -i 's/#AddressFamily any/AddressFamily inet/g' /etc/ssh/sshd_config
+sed -i 's/#ListenAddress 0.0.0.0/ListenAddress 172.17.0.2/g' /etc/ssh/sshd_config
+sed -i 's/#Banner none/Banner \/etc\/issue.net/g' /etc/ssh/sshd_config
+
+
+echo -e "\e[33msshd backed up to \e[93m/etc/pam.d/sshd.bak\e[39m"
+echo " "
+cp /etc/pam.d/sshd /etc/pam.d/sshd.bak
+sed -i 's/session    optional     pam_motd.so  motd=\/run\/motd.dynamic/#session    optional     pam_motd.so  motd=\/run\/motd.dynamic/g' /etc/pam.d/sshd
+echo -e "\e[33missue.net backed up to \e[93m/etc/issue.net\e[39m"
+echo " "
+cp ./issue.net /etc/issue.net
+echo -e "\e[33mmotd backed up to \e[93m/etc/motd.bak\e[39m"
+echo " "
+cp motd /etc/motd
+
+
+systemctl restart sshd.service
+systemctl status sshd.service &> /dev/null
+if [ $? -eq 0 ]
+	then
+		echo -e "\e[32mSSH configured successfully\e[39m"
+		echo ""
+	else
+		echo -e "\e[31mDHCP configuration failed, check config\e[39m"
+                systemctl status sshd.service
+		exit
+fi
+
+##################################################
+# --- --- iptables, NAT -------------------------#
+##################################################
 echo -e "\e[36m\e[1m\e[4m> Configure iptables NAT\e[39m\e[0m"
 echo " "
 iptables -t nat -A POSTROUTING -o ens33 -j MASQUERADE
